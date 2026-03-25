@@ -1,19 +1,24 @@
+// src/routers/role.router.js
 import { Router } from "express";
 import { getRoles, getRoleById, createRole, updateRole, deleteRole } from "../controllers/role.controller.js";
-
-// --- CREACION DE RUTAS --- //
-// get: Obtener
-// post: Crear datos
-// put: Actualizar
-// delete: Eliminar
+import { verifyToken } from "../middlewares/verifyToken.js";
+import { isAdmin } from "../middlewares/isAdmin.js";
 
 const router = Router();
 
-router.get('/roles', getRoles); // TOdos los roles
-router.get('/roles/:id', getRoleById); // Roles por id
-router.post('/roles', createRole); // Crear un rol
-router.put('/roles/:id', updateRole); // Actualizar un rol
-router.delete('/roles/:id', deleteRole); // Eliminar un rol
+// GET - Ver todos los roles (solo admin — nadie más necesita gestionar roles)
+router.get("/roles", verifyToken, isAdmin, getRoles);
 
-// Exportamos las rutas
+// GET - Ver rol por ID (solo admin)
+router.get("/roles/:id", verifyToken, isAdmin, getRoleById);
+
+// POST - Crear rol (solo admin)
+router.post("/roles", verifyToken, isAdmin, createRole);
+
+// PUT - Actualizar rol (solo admin)
+router.put("/roles/:id", verifyToken, isAdmin, updateRole);
+
+// DELETE - Eliminar rol (solo admin)
+router.delete("/roles/:id", verifyToken, isAdmin, deleteRole);
+
 export default router;

@@ -1,5 +1,6 @@
+// src/routers/notification.router.js
 import express from "express";
-import { 
+import {
     getAllNotifications,
     getNotificationById,
     createNotification,
@@ -12,34 +13,35 @@ import {
 } from "../controllers/notification.controller.js";
 import { verifyToken } from "../middlewares/verifyToken.js";
 import { isAdmin } from "../middlewares/isAdmin.js";
+import { isAdminOrEmployee } from "../middlewares/isAdminOrEmployee.js";
 
 const router = express.Router();
 
-// GET /api/v1/notifications - Obtener todas las notificaciones
-router.get("/notification", getAllNotifications);
+// GET - Todas las notificaciones (admin y empleado)
+router.get("/notification", verifyToken, isAdminOrEmployee, getAllNotifications);
 
-// GET /api/v1/notifications/:id - Obtener notificación por ID
-router.get("/notification/:id", getNotificationById);
+// GET - Notificación por ID (admin, empleado y el propio cliente con token)
+router.get("/notification/:id", verifyToken, getNotificationById);
 
-// GET /api/v1/notifications/customer/:id - Notificaciones por cliente
-router.get("/notification/customer/:id", getNotificationsByCustomer);
+// GET - Notificaciones por cliente (admin, empleado y el propio cliente con token)
+router.get("/notification/customer/:id", verifyToken, getNotificationsByCustomer);
 
-// POST /api/v1/notifications - Crear notificación
-router.post("/notification", verifyToken, createNotification);
+// POST - Crear notificación (admin y empleado)
+router.post("/notification", verifyToken, isAdminOrEmployee, createNotification);
 
-// PUT /api/v1/notifications/:id - Actualizar notificación
-router.put("/notification/:id", verifyToken, updateNotification);
+// PUT - Actualizar notificación (admin y empleado)
+router.put("/notification/:id", verifyToken, isAdminOrEmployee, updateNotification);
 
-// PATCH /api/v1/notifications/:id/sent - Marcar como enviada
-router.patch("/notification/:id/sent", verifyToken, markAsSent);
+// PATCH - Marcar como enviada (admin y empleado)
+router.patch("/notification/:id/sent", verifyToken, isAdminOrEmployee, markAsSent);
 
-// PATCH /api/v1/notifications/:id/read - Marcar como leída
+// PATCH - Marcar como leída (cualquier usuario logueado — el cliente marca las suyas)
 router.patch("/notification/:id/read", verifyToken, markAsRead);
 
-// DELETE /api/v1/notifications/:id - Eliminar notificación (soft delete)
-router.delete("/notification/:id", verifyToken, deleteNotification);
+// DELETE - Soft delete (admin y empleado)
+router.delete("/notification/:id", verifyToken, isAdminOrEmployee, deleteNotification);
 
-// DELETE /api/v1/notifications/:id/permanent - Eliminar permanentemente (solo admin)
+// DELETE - Eliminar permanentemente (solo admin)
 router.delete("/notification/:id/permanent", verifyToken, isAdmin, permanentDeleteNotification);
 
 export default router;

@@ -1,17 +1,24 @@
+// src/routers/paymentType.router.js
 import { Router } from "express";
-import { getAllPaymentTypes, getPaymentTypeById, createPaymentType, updatePaymentType, deletePaymentType} from "../controllers/paymentType.controller.js";
+import { getAllPaymentTypes, getPaymentTypeById, createPaymentType, updatePaymentType, deletePaymentType } from "../controllers/paymentType.controller.js";
+import { verifyToken } from "../middlewares/verifyToken.js";
+import { isAdmin } from "../middlewares/isAdmin.js";
 
-// CREACIÓN DE RUTAS
 const router = Router();
 
-router.get("/paymentType", getAllPaymentTypes); // get: Obtener
+// GET - Ver todos los tipos de pago (público — se necesita al crear una venta)
+router.get("/paymentType", getAllPaymentTypes);
+
+// GET - Ver tipo de pago por ID (público)
 router.get("/paymentType/:id", getPaymentTypeById);
 
-router.post("/paymentType", createPaymentType); // post: Crear datos
+// POST - Crear tipo de pago (solo admin)
+router.post("/paymentType", verifyToken, isAdmin, createPaymentType);
 
-router.put("/paymentType/:id", updatePaymentType); // put: Actualizar
+// PUT - Actualizar tipo de pago (solo admin)
+router.put("/paymentType/:id", verifyToken, isAdmin, updatePaymentType);
 
-router.delete("/paymentType/:id", deletePaymentType); // delete: Eliminar (Borrado Físico)
+// DELETE - Eliminar tipo de pago (solo admin)
+router.delete("/paymentType/:id", verifyToken, isAdmin, deletePaymentType);
 
-// Exportamos las rutas
 export default router;

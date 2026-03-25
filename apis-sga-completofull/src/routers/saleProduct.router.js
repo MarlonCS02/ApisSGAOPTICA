@@ -1,14 +1,25 @@
+// src/routers/saleProduct.router.js
 import { Router } from "express";
-import { getAllSaleProducts, getSaleProductById, createSaleProduct, updateSaleProduct, deleteSaleProduct} from "../controllers/saleProduct.controller.js";
+import { getAllSaleProducts, getSaleProductById, createSaleProduct, updateSaleProduct, deleteSaleProduct } from "../controllers/saleProduct.controller.js";
+import { verifyToken } from "../middlewares/verifyToken.js";
+import { isAdmin } from "../middlewares/isAdmin.js";
+import { isAdminOrEmployee } from "../middlewares/isAdminOrEmployee.js";
 
-// CREACIÓN DE RUTAS
 const router = Router();
 
-router.get("/saleProduct", getAllSaleProducts); // get: Obtener
-router.get("/saleProduct/:id", getSaleProductById);
-router.post("/saleProduct", createSaleProduct); // post: Crear datos
-router.put("/saleProduct/:id", updateSaleProduct); // put: Actualizar
-router.delete("/saleProduct/:id", deleteSaleProduct); // delete: Eliminar
+// GET - Ver todos los detalles de venta (admin y empleado)
+router.get("/saleProduct", verifyToken, isAdminOrEmployee, getAllSaleProducts);
 
-// Exportamos las rutas
+// GET - Ver detalle por ID (admin y empleado)
+router.get("/saleProduct/:id", verifyToken, isAdminOrEmployee, getSaleProductById);
+
+// POST - Crear detalle de venta (admin y empleado)
+router.post("/saleProduct", verifyToken, isAdminOrEmployee, createSaleProduct);
+
+// PUT - Actualizar detalle (admin y empleado)
+router.put("/saleProduct/:id", verifyToken, isAdminOrEmployee, updateSaleProduct);
+
+// DELETE - Eliminar detalle (solo admin)
+router.delete("/saleProduct/:id", verifyToken, isAdmin, deleteSaleProduct);
+
 export default router;

@@ -1,19 +1,22 @@
+// src/routers/sale.router.js
 import { Router } from "express";
-// Importamos las funciones creadas para el apartado de ventas //
 import { createSale, getSales, getSaleById, deleteSale } from "../controllers/sale.controller.js";
-
-// --- CREACION DE RUTAS --- //
-// get: Obtener
-// post: Crear datos
-// put: Actualizar
-// delete: Eliminar
+import { verifyToken } from "../middlewares/verifyToken.js";
+import { isAdmin } from "../middlewares/isAdmin.js";
+import { isAdminOrEmployee } from "../middlewares/isAdminOrEmployee.js";
 
 const router = Router();
 
-router.post("/sales", createSale); // Crear venta
-router.get("/sales", getSales); // Ver todas las ventas
-router.get("/sales/:id", getSaleById); // Ver la venta por su id
-router.delete("/sales/:id", deleteSale); // Eliminar venta
+// GET - Ver todas las ventas (admin y empleado)
+router.get("/sales", verifyToken, isAdminOrEmployee, getSales);
 
-// Exportamos las rutas
+// GET - Ver venta por ID (admin y empleado)
+router.get("/sales/:id", verifyToken, isAdminOrEmployee, getSaleById);
+
+// POST - Crear venta (admin y empleado — el cliente no compra directamente por API)
+router.post("/sales", verifyToken, isAdminOrEmployee, createSale);
+
+// DELETE - Eliminar venta (solo admin)
+router.delete("/sales/:id", verifyToken, isAdmin, deleteSale);
+
 export default router;

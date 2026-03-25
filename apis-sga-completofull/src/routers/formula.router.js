@@ -1,25 +1,27 @@
+// src/routers/formula.router.js
 import { Router } from "express";
-// Importamos el middleware para subir formulas en imagen y pdf
 import subirFormula from "../middlewares/uploadFormula.js";
-// Importamos las funciones para la subida de la formua
 import { uploadFormula, getFormulas, getFormulaById, getFormulasByCustomer, deleteFormula } from "../controllers/formula.controller.js";
-
-// --- CREACION DE RUTAS --- //
-// get: Obtener
-// post: Crear datos
-// put: Actualizar
-// delete: Eliminar
+import { verifyToken } from "../middlewares/verifyToken.js";
+import { isAdmin } from "../middlewares/isAdmin.js";
+import { isAdminOrOptometrist } from "../middlewares/isAdminOrOptometrist.js";
 
 const router = Router();
 
-router.post("/formulas", subirFormula.single("file"), uploadFormula); // Aqui se sube las formulas
-router.get("/formulas", getFormulas); // Ver formulas
+// GET - Ver todas las fórmulas (solo admin y optómetra)
+router.get("/formulas", verifyToken, isAdminOrOptometrist, getFormulas);
 
-// Nota: La ruta con más segmentos DEBE ir antes para evitar que ":id" capture "customer"
-router.get("/formulas/customer/:customerId", getFormulasByCustomer); // Formulas por id del cliente
+// GET - Fórmulas por cliente (admin, optómetra y el propio cliente con token)
+// La ruta con más segmentos va antes para evitar que ":id" capture "customer"
+router.get("/formulas/customer/:customerId", verifyToken, getFormulasByCustomer);
 
-router.get("/formulas/:id", getFormulaById); // Formulas por id
-router.delete("/formulas/:id", deleteFormula); // Eliminar una formula
+// GET - Fórmula por ID (admin, optómetra y el propio cliente con token)
+router.get("/formulas/:id", verifyToken, getFormulaById);
 
-// Exportamos las rutas
+// POST - Subir fórmula (admin, optómetra y cliente — el cliente sube la suya)
+router.post("/formulas", verifyToken, subirFormula.single("file"), uploadFormula);
+
+// DELETE - Eliminar fórmula (solo admin)
+router.delete("/formulas/:id", verifyToken, isAdmin, deleteFormula);
+
 export default router;

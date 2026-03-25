@@ -1,14 +1,24 @@
+// src/routers/optometrist.router.js
 import { Router } from "express";
-import { getAllOptometrists, getOptometristById, createOptometrist, updateOptometrist, deleteOptometrist} from "../controllers/optometrist.controller.js";
+import { getAllOptometrists, getOptometristById, createOptometrist, updateOptometrist, deleteOptometrist } from "../controllers/optometrist.controller.js";
+import { verifyToken } from "../middlewares/verifyToken.js";
+import { isAdmin } from "../middlewares/isAdmin.js";
 
-// CREACIÓN DE RUTAS
 const router = Router();
 
-router.get("/optometrist", getAllOptometrists); // get: Obtener
-router.get("/optometrist/:id", getOptometristById);
-router.post("/optometrist", createOptometrist); // post: Crear datos
-router.put("/optometrist/:id", updateOptometrist); // put: Actualizar
-router.delete("/optometrist/:id", deleteOptometrist); // delete: Eliminar (Borrado Lógico)
+// GET - Ver todos los optómetras (público — el cliente necesita saber quién lo atiende)
+router.get("/optometrist", getAllOptometrists);
 
-// Exportamos las rutas
+// GET - Ver optómetra por ID (público)
+router.get("/optometrist/:id", getOptometristById);
+
+// POST - Crear optómetra (solo admin)
+router.post("/optometrist", verifyToken, isAdmin, createOptometrist);
+
+// PUT - Actualizar optómetra (solo admin)
+router.put("/optometrist/:id", verifyToken, isAdmin, updateOptometrist);
+
+// DELETE - Desactivar optómetra (solo admin — borrado lógico)
+router.delete("/optometrist/:id", verifyToken, isAdmin, deleteOptometrist);
+
 export default router;

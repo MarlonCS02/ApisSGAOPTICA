@@ -245,6 +245,48 @@ export const getAppointmentsByCustomer = async (req, res) => {
 };
 
 // =============================================
+// OBTENER CITAS POR OPTÓMETRA
+// =============================================
+export const getAppointmentsByOptometrist = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { page = 1, limit = 10 } = req.query;
+
+        const optometristExists = await Optometrist.findByPk(id);
+        if (!optometristExists) {
+            return res.status(404).json({ message: "Optometrist not found" });
+        }
+
+        const offset = (page - 1) * limit;
+
+        const { count, rows } = await Appointment.findAndCountAll({
+            where: { optometrist_id: id },
+            include: [
+                { model: Customer, attributes: ["customer_id", "firstName", "firstLastName", "phoneNumber"] },
+                { model: ExamType, attributes: ["id", "name", "description"] }
+            ],
+            order: [["date", "DESC"], ["time", "DESC"]],
+            limit: parseInt(limit),
+            offset: parseInt(offset)
+        });
+
+        res.status(200).json({
+            optometrist: {
+                id: optometristExists.id,
+                name: `${optometristExists.firstName} ${optometristExists.firstLastName}`
+            },
+            totalItems: count,
+            totalPages: Math.ceil(count / limit),
+            currentPage: parseInt(page),
+            data: rows
+        });
+
+    } catch (error) {
+        handleSequelizeError(res, error, "Error obtaining optometrist's appointments");
+    }
+};
+
+// =============================================
 // ACTUALIZAR CITA
 // =============================================
 export const updateAppointment = async (req, res) => {
