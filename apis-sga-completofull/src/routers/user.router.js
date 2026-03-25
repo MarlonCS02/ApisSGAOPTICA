@@ -27,15 +27,16 @@ router.post("/user/register", createUser);
 // Login usuario → devuelve token
 router.post("/auth/login", loginUser);
 
+// Mostrar todos los usuarios (protegido)
+router.get("/user", showUser);
+
+// Mostrar usuario por ID (protegido)
+router.get("/user/:id", showUserId);
+
 // ----------------------------------------------------
 // 🔐 RUTAS PROTEGIDAS (requieren token)
 // ----------------------------------------------------
 
-// Mostrar todos los usuarios (protegido)
-router.get("/user", verifyToken, showUser);
-
-// Mostrar usuario por ID (protegido)
-router.get("/user/:id", verifyToken, showUserId);
 
 // Actualizar usuario (protegido)
 router.put("/user/:id", verifyToken, updateUser);
