@@ -24,6 +24,7 @@ import examTypeRoutes from "../routers/examType.js";
 import paymentTypeRoutes from "../routers/paymentType.router.js";
 import saleProductRoutes from "../routers/saleProduct.router.js";
 import reportRouter from "../routers/report.router.js";
+import passwordRoutes from "../routers/password.router.js";
 
 
 const app = express();
@@ -53,6 +54,7 @@ app.use('/api/v1', examTypeRoutes);
 app.use('/api/v1', paymentTypeRoutes);
 app.use('/api/v1', saleProductRoutes);
 app.use("/api/v1", reportRouter); 
+app.use('/api/v1/auth', passwordRoutes);
 
 // Error 404
 app.use((req, res) => {
