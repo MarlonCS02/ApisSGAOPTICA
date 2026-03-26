@@ -7,6 +7,7 @@ import bcrypt from "bcryptjs";
 
 import User from "../models/user.model.js";
 import UserEntity from "../models/userEntity.model.js";
+import Customer from "../models/customer.model.js";
 import Role from "../models/role.model.js";
 
 
@@ -39,7 +40,115 @@ const handleSequelizeError = (res, error, defaultMessage) => {
 
 
 // ----------------------------------------------------
-// ➕ CREAR USUARIO + USERENTITY (Transacción)
+// 🌐 REGISTRO PÚBLICO — para el formulario del frontend
+// Crea User + UserEntity + Customer en una sola transacción.
+// El rol "cliente" se asigna automáticamente — el frontend
+// no necesita enviar role_id.
+// Campos requeridos: nombre, correo, contraseña
+// Campos opcionales: telefono
+// ----------------------------------------------------
+export const registerUser = async (req, res) => {
+    const t = await sequelize.transaction();
+
+    try {
+        const { nombre, correo, contrasena, confirmar_contrasena, telefono } = req.body;
+
+        // 1. Validar campos requeridos
+        if (!nombre || !correo || !contrasena || !confirmar_contrasena) {
+            await t.rollback();
+            return res.status(400).json({
+                message: "Los campos nombre, correo, contraseña y confirmar contraseña son obligatorios."
+            });
+        }
+
+        // 2. Verificar que las contraseñas coincidan
+        if (contrasena !== confirmar_contrasena) {
+            await t.rollback();
+            return res.status(400).json({
+                message: "Las contraseñas no coinciden."
+            });
+        }
+
+        // 3. Verificar que el correo no esté ya registrado
+        const emailExiste = await Customer.findOne({ where: { email: correo } });
+        if (emailExiste) {
+            await t.rollback();
+            return res.status(409).json({
+                message: "Este correo ya está registrado."
+            });
+        }
+
+        // 4. Buscar el rol "cliente" automáticamente — el frontend no lo envía
+        const rolCliente = await Role.findOne({ where: { role_name: "cliente" } });
+        if (!rolCliente) {
+            await t.rollback();
+            return res.status(500).json({
+                message: "Error de configuración: el rol 'cliente' no existe en la base de datos."
+            });
+        }
+
+        // 5. Encriptar contraseña
+        const hashed = bcrypt.hashSync(contrasena, 10);
+
+        // 6. Crear User (el correo se usa como username)
+        const nuevoUser = await User.create(
+            {
+                user_user: correo,
+                user_password: hashed,
+                role_id: rolCliente.role_id
+            },
+            { transaction: t }
+        );
+
+        // 7. Crear UserEntity con el nombre
+        // "nombre" se guarda completo en first_name para simplificar el registro.
+        // El admin puede completar apellidos después si lo necesita.
+        await UserEntity.create(
+            {
+                user_id: nuevoUser.user_id,
+                first_name: nombre,
+                last_name: "",
+                phone: telefono || null,
+                address: null
+            },
+            { transaction: t }
+        );
+
+        // 8. Crear Customer con los datos básicos
+        // idDocType y documentNumber quedan null — se completan en la óptica.
+        await Customer.create(
+            {
+                idUser: nuevoUser.user_id,
+                idDocType: null,
+                documentNumber: null,
+                firstName: nombre,
+                firstLastName: "",
+                phoneNumber: telefono || null,
+                email: correo
+            },
+            { transaction: t }
+        );
+
+        // 9. Confirmar transacción — si algo falló arriba, nada se guarda
+        await t.commit();
+
+        return res.status(201).json({
+            message: "Registro exitoso. Ya puedes iniciar sesión.",
+            user_id: nuevoUser.user_id
+        });
+
+    } catch (error) {
+        await t.rollback();
+        return handleSequelizeError(res, error, "Error al registrar el usuario.");
+    }
+};
+
+
+
+// ----------------------------------------------------
+// ➕ CREAR USUARIO + USERENTITY (uso interno del admin)
+// Este endpoint queda intacto para que el administrador
+// pueda crear usuarios con cualquier rol desde el panel.
 // ----------------------------------------------------
 export const createUser = async (req, res) => {
     const t = await sequelize.transaction();
