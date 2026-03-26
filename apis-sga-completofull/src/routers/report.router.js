@@ -26,6 +26,6 @@ router.get("/reports/customer-appointment", verifyToken, getCustomerAppointments
 
 // GET - Productos más vendidos (solo admin)
 // GET /api/v1/reports/top-products?startDate=2024-01-01&endDate=2024-01-31&limit=5
-router.get("/reports/top-products", verifyToken, isAdmin, getTopProductsReport);
+router.get("/reports/top-products", verifyToken, isAdmin, getTopProductsReport); // Este no esta sirviendo
 
 export default router;

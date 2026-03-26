@@ -1,10 +1,10 @@
-// src/routes/user.router.js
-
+// src/routers/user.router.js
 import { Router } from "express";
 import { verifyToken } from "../middlewares/verifyToken.js";
+import { isAdmin } from "../middlewares/isAdmin.js";
 
-// CRUD del usuario
 import {
+    registerUser,
     createUser,
     showUser,
     showUserId,
@@ -12,7 +12,6 @@ import {
     deleteUser
 } from "../controllers/user.controller.js";
 
-// LOGIN
 import { loginUser } from "../controllers/auth.controller.js";
 
 const router = Router();
@@ -21,27 +20,30 @@ const router = Router();
 // 🔓 RUTAS PÚBLICAS (sin token)
 // ----------------------------------------------------
 
-// Registrar usuario
-router.post("/user/register", createUser);
+// Registro público desde el frontend — asigna rol "cliente" automáticamente
+router.post("/auth/register", registerUser);
 
-// Login usuario → devuelve token
+// Login — devuelve token JWT
 router.post("/auth/login", loginUser);
 
-// Mostrar todos los usuarios (protegido)
-router.get("/user", showUser);
+// Registro interno del admin — permite especificar cualquier rol
+router.post("/user/register", verifyToken, isAdmin, createUser);
 
-// Mostrar usuario por ID (protegido)
-router.get("/user/:id", showUserId);
 
 // ----------------------------------------------------
 // 🔐 RUTAS PROTEGIDAS (requieren token)
 // ----------------------------------------------------
 
+// Ver todos los usuarios (solo admin)
+router.get("/user", verifyToken, isAdmin, showUser);
 
-// Actualizar usuario (protegido)
-router.put("/user/:id", verifyToken, updateUser);
+// Ver usuario por ID (solo admin)
+router.get("/user/:id", verifyToken, isAdmin, showUserId);
 
-// Eliminar usuario (protegido)
-router.delete("/user/:id", verifyToken, deleteUser);
+// Actualizar usuario (solo admin)
+router.put("/user/:id", verifyToken, isAdmin, updateUser);
+
+// Eliminar usuario (solo admin)
+router.delete("/user/:id", verifyToken, isAdmin, deleteUser);
 
 export default router;
