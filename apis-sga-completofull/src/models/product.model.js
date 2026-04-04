@@ -18,6 +18,11 @@ Product.init(
       unique: true,
       field: "name_product"  // Mapea a la columna name_product
     },
+    description: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      field: "description"  // Mapea a la columna description
+    },
     stock: {
       type: DataTypes.INTEGER,
       allowNull: false,

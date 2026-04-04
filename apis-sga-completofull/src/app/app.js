@@ -38,6 +38,9 @@ app.use(express.urlencoded({ extended: true }));
 // Archivos estáticos (fórmulas)
 app.use("/uploads", express.static(path.join(__dirname, '..', 'public', 'uploads')));
 
+// Archivos estáticos para productos
+app.use("/uploads/products", express.static(path.join(__dirname, '..', 'uploads', 'products')));
+
 // Rutas
 app.use('/api/v1', roleRoutes);
 app.use('/api/v1', userRoutes);

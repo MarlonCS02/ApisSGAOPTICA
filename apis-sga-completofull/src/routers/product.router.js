@@ -1,4 +1,5 @@
 import express from "express";
+import upload from "../middlewares/upload.js";  // 👈 AGREGAR ESTA LÍNEA
 import { 
     createProduct,
     getProducts, 
@@ -29,10 +30,10 @@ router.get("/products/:id", getProductById);
 // =============================================
 
 // POST /api/v1/products - Crear un nuevo producto
-router.post("/products", verifyToken, isAdmin, createProduct);
+router.post("/products", verifyToken, isAdmin, upload.single("imagen"), createProduct);  // MODIFICACION DE IMAGEN DE PRODUCTO
 
 // PUT /api/v1/products/:id - Actualizar un producto completo
-router.put("/products/:id", verifyToken, isAdmin, updateProduct);
+router.put("/products/:id", verifyToken, isAdmin, upload.single("imagen"), updateProduct);  // MODIFICACION DE IMAGEN DE PRODUCTO
 
 // PATCH /api/v1/products/:id/stock - Actualizar solo el stock
 router.patch("/products/:id/stock", verifyToken, isAdmin, updateStock);
