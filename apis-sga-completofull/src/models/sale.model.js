@@ -5,47 +5,68 @@ import sequelize from "../config/connect.db.js";
 class Sale extends Model {}
 
 Sale.init({
-  id: { 
+  id: { 
     type: DataTypes.INTEGER, 
     primaryKey: true, 
     autoIncrement: true, 
     field: "id" 
   },
-  dateSale: { 
+  dateSale: { 
     type: DataTypes.DATEONLY, 
-    allowNull: false, // MEJORA: La fecha de venta es obligatoria
+    allowNull: false,
     field: "date_sale" 
   },
-  numberBill: { 
+  numberBill: { 
     type: DataTypes.STRING(50), 
-    allowNull: false, // MEJORA: Número de factura obligatorio
-    unique: true, // MEJORA: El número de factura debe ser único
+    allowNull: false,
+    unique: true,
     field: "number_bill" 
   },
-  total: { 
+  total: { 
     type: DataTypes.FLOAT, 
-    allowNull: false, // MEJORA: El total es obligatorio
-    defaultValue: 0.00, // MEJORA: Valor por defecto
+    allowNull: false,
+    defaultValue: 0.00,
     field: "total" 
   },
-  // Clave Foránea: Customer
-  customerId: { 
-    type: DataTypes.INTEGER, // Consistente con Customer PK
-    allowNull: false, // MEJORA: Toda venta debe tener un cliente
+  // Clave Foránea: Customer (AHORA PERMITE NULL para ventas públicas)
+  customerId: { 
+    type: DataTypes.INTEGER,
+    allowNull: true,  // ✅ CAMBIADO: null para clientes anónimos
     field: "customer_id" 
   },
-  // Clave Foránea: PaymentType
-  paymentTypeId: { 
-    type: DataTypes.INTEGER, // Consistente con PaymentType PK
-    allowNull: false, // MEJORA: Toda venta debe tener un tipo de pago
+  // Clave Foránea: PaymentType
+  paymentTypeId: { 
+    type: DataTypes.INTEGER,
+    allowNull: false,
     field: "payment_type_id" 
+  },
+  // ✅ NUEVOS CAMPOS PARA CLIENTES ANÓNIMOS (ventas públicas)
+  guestName: {
+    type: DataTypes.STRING(150),
+    allowNull: true,
+    field: "guest_name"
+  },
+  guestEmail: {
+    type: DataTypes.STRING(150),
+    allowNull: true,
+    field: "guest_email"
+  },
+  guestPhone: {
+    type: DataTypes.STRING(20),
+    allowNull: true,
+    field: "guest_phone"
+  },
+  guestAddress: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    field: "guest_address"
   }
 }, {
-  sequelize,
-  modelName: "Sale",
-  tableName: "sale",
-  timestamps: false,
-  freezeTableName: true // AGREGADO: Para evitar pluralización
+  sequelize,
+  modelName: "Sale",
+  tableName: "sale",
+  timestamps: false,
+  freezeTableName: true
 });
 
 export default Sale;

@@ -226,3 +226,105 @@ export const deleteSale = async (req, res) => {
 };
 
 // -------------------------------- //
+
+
+// AGREGAR ESTA FUNCIÓN
+
+export const createPublicSale = async (req, res) => {
+    const t = await sequelize.transaction();
+
+    try {
+        const { 
+            guestName, 
+            guestEmail, 
+            guestPhone, 
+            guestAddress,
+            paymentTypeId, 
+            products 
+        } = req.body; 
+
+        if (!products || products.length === 0) {
+            return res.status(400).json({ message: "Debe agregar productos a la venta." });
+        }
+
+        // Validar tipo de pago
+        const paymentTypeExists = await PaymentType.findByPk(paymentTypeId);
+        if (!paymentTypeExists) {
+            return res.status(400).json({ message: "Tipo de pago no encontrado." });
+        }
+
+        // Validar productos y stock
+        let total = 0;
+        const productsDB = [];
+
+        for (let p of products) {
+            const productDB = await Product.findByPk(p.productId); 
+
+            if (!productDB) {
+                return res.status(404).json({ message: `Producto ID ${p.productId} no encontrado.` });
+            }
+            
+            if (productDB.stock < p.quantity) {
+                return res.status(400).json({ 
+                    message: `Stock insuficiente para ${productDB.nameProduct}. Disponible: ${productDB.stock}, Solicitado: ${p.quantity}` 
+                });
+            }
+
+            total += productDB.unitPrice * p.quantity;
+            productsDB.push({ productDB, quantity: p.quantity });
+        }
+
+        // Generar número de factura único
+        const numberBill = `PUB-${Date.now()}`; 
+
+        // Crear venta SIN customerId (usando campos guest)
+        const sale = await Sale.create(
+            {
+                customerId: null,  // ✅ IMPORTANTE: null porque es venta pública
+                paymentTypeId,
+                dateSale: new Date(),
+                numberBill,
+                total,
+                guestName: guestName || "Cliente Anónimo",
+                guestEmail: guestEmail || null,
+                guestPhone: guestPhone || null,
+                guestAddress: guestAddress || null
+            },
+            { transaction: t }
+        );
+
+        // Insertar detalles y reducir stock
+        for (let p of productsDB) {
+            await SaleProduct.create(
+                {
+                    saleId: sale.id,
+                    productId: p.productDB.id, 
+                    quantity: p.quantity,
+                    sellPrice: p.productDB.unitPrice, 
+                },
+                { transaction: t }
+            );
+
+            await Product.update(
+                {
+                    stock: p.productDB.stock - p.quantity,
+                },
+                { where: { id: p.productDB.id }, transaction: t }
+            );
+        }
+
+        await t.commit();
+        
+        res.status(201).json({ 
+            success: true, 
+            message: "Venta creada exitosamente", 
+            id: sale.id, 
+            numberBill: sale.numberBill,
+            total: sale.total
+        });
+
+    } catch (error) {
+        await t.rollback();
+        handleSequelizeError(res, error, "Error creando la venta pública");
+    }
+};
