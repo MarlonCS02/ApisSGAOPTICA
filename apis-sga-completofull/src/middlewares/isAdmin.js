@@ -11,7 +11,8 @@ export const isAdmin = (req, res, next) => {
         // Se verifica por role_name que viene en el token JWT (puesto por verifyToken.js)
         // CORRECCIÓN: antes verificaba user_id === 1, lo cual era incorrecto porque
         // ataba el permiso a un usuario específico en lugar de al rol.
-        if (req.user.role_name !== "Administrador") {
+        // Comparación case-insensitive para tolerar "Administrador" o "administrador"
+        if ((req.user.role_name || "").toLowerCase() !== "administrador") {
             return res.status(403).json({
                 success: false,
                 message: "Acceso denegado. Solo el administrador puede realizar esta acción."

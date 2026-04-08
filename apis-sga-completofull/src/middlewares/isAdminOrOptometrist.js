@@ -10,9 +10,11 @@ export const isAdminOrOptometrist = (req, res, next) => {
             });
         }
 
+        // Comparación case-insensitive
+        const roleLower = (req.user.role_name || "").toLowerCase();
         const rolesPermitidos = ["administrador", "optometra"];
 
-        if (!rolesPermitidos.includes(req.user.role_name)) {
+        if (!rolesPermitidos.includes(roleLower)) {
             return res.status(403).json({
                 success: false,
                 message: "Acceso denegado. Se requiere rol de administrador u optómetra."
