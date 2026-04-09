@@ -4,9 +4,7 @@ import { isAdmin } from "../middlewares/isAdmin.js";
 import { 
     getAppointmentNotificationsReport,
     getAppointmentsStatusReport,
-    getRemindersHistory,
-    getSalesReport,
-    getInventoryReport
+    getRemindersHistory
 } from "../controllers/report.controller.js";
 
 const router = Router();
