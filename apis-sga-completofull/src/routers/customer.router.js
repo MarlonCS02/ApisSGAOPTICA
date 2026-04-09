@@ -1,6 +1,6 @@
 // src/routers/customer.router.js
 import { Router } from "express";
-import { getAllCustomers, getCustomerById, createCustomer, updateCustomer, deleteCustomer } from "../controllers/customer.controller.js";
+import { getAllCustomers, getCustomerById, createCustomer, updateCustomer, deleteCustomer, updateCustomerProfile } from "../controllers/customer.controller.js";
 import { verifyToken } from "../middlewares/verifyToken.js";
 import { isAdmin } from "../middlewares/isAdmin.js";
 import { isAdminOrEmployee } from "../middlewares/isAdminOrEmployee.js";
@@ -21,5 +21,8 @@ router.put("/customer/:id", verifyToken, isAdminOrEmployee, updateCustomer);
 
 // DELETE - Eliminar cliente (solo admin)
 router.delete("/customer/:id", verifyToken, isAdmin, deleteCustomer);
+
+// Ruta para actualizar perfil del cliente autenticado
+router.put("/customer/profile", verifyToken, updateCustomerProfile);
 
 export default router;

@@ -203,3 +203,60 @@ export const deleteCustomer = async (req, res) => {
         handleSequelizeError(res, error, "Error deleting customer");
     }
 };
+
+// ---------------------------------------------------
+// PUT: Actualizar perfil del cliente autenticado
+// ---------------------------------------------------
+export const updateCustomerProfile = async (req, res) => {
+    try {
+        // Obtener el user_id del token
+        const userId = req.user.user_id;
+        
+        const { firstName, secondName, firstLastName, secondLastName, phoneNumber, email } = req.body;
+
+        // Buscar el customer por idUser
+        const customer = await Customer.findOne({
+            where: { idUser: userId }
+        });
+
+        if (!customer) {
+            return res.status(404).json({ message: "Customer not found" });
+        }
+
+        // Actualizar solo los campos que vienen
+        if (firstName !== undefined) customer.firstName = firstName;
+        if (secondName !== undefined) customer.secondName = secondName;
+        if (firstLastName !== undefined) customer.firstLastName = firstLastName;
+        if (secondLastName !== undefined) customer.secondLastName = secondLastName;
+        if (phoneNumber !== undefined) customer.phoneNumber = phoneNumber;
+        if (email !== undefined) customer.email = email;
+
+        await customer.save();
+
+        return res.status(200).json({
+            message: "Profile updated successfully",
+            customer: {
+                firstName: customer.firstName,
+                secondName: customer.secondName,
+                firstLastName: customer.firstLastName,
+                secondLastName: customer.secondLastName,
+                phoneNumber: customer.phoneNumber,
+                email: customer.email,
+            }
+        });
+
+    } catch (error) {
+        console.error("Error updating customer profile:", error);
+        
+        if (error.name === 'SequelizeUniqueConstraintError') {
+            return res.status(409).json({ 
+                message: "Email or document already exists" 
+            });
+        }
+        
+        return res.status(500).json({ 
+            message: "Error updating profile", 
+            error: error.message 
+        });
+    }
+};
