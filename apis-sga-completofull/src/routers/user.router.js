@@ -8,7 +8,8 @@ import {
     showUser,
     showUserId,
     updateUser,
-    deleteUser
+    deleteUser,
+    updateOwnProfile
 } from "../controllers/user.controller.js";
 
 import { loginUser } from "../controllers/auth.controller.js";
@@ -28,6 +29,9 @@ router.post("/auth/login", loginUser);
 // Registro interno del admin — permite especificar cualquier rol
 router.post("/user/register", verifyToken, isAdmin, createUser);
 
+router.put("/user/profile", verifyToken, updateOwnProfile);
+
+
 // ----------------------------------------------------
 // 🔐 RUTAS PROTEGIDAS (requieren token)
 // ----------------------------------------------------
@@ -43,5 +47,8 @@ router.put("/user/:id", verifyToken, isAdmin, updateUser);
 
 // Eliminar usuario (solo admin)
 router.delete("/user/:id", verifyToken, isAdmin, deleteUser);
+
+// Actualizar propio perfil
+router.put("/user/profile", verifyToken, updateOwnProfile);
 
 export default router;

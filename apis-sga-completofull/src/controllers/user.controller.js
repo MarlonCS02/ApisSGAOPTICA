@@ -377,3 +377,93 @@ export const deleteUser = async (req, res) => {
         });
     }
 };
+
+// Actualizar el propio perfil del usuario autenticado
+export const updateOwnProfile = async (req, res) => {
+    const t = await sequelize.transaction();
+
+    try {
+        const userId = req.user.user_id;
+
+        const user = await User.findByPk(userId, {
+            include: [{ model: UserEntity, as: "UserEntityInfo" }]
+        });
+        
+        if (!user) {
+            await t.rollback();
+            return res.status(404).json({ message: "User not found." });
+        }
+
+        const { user_user, first_name, last_name, phone, address } = req.body;
+
+        // 1. Actualizar User (email)
+        if (user_user !== undefined && user_user !== user.user_user) {
+            user.user_user = user_user;
+            await user.save({ transaction: t });
+        }
+
+        // 2. Actualizar UserEntity
+        const entityData = {};
+        if (first_name !== undefined) entityData.first_name = first_name;
+        if (last_name !== undefined) entityData.last_name = last_name;
+        if (phone !== undefined) entityData.phone = phone;
+        if (address !== undefined) entityData.address = address;
+
+        if (Object.keys(entityData).length > 0) {
+            if (user.UserEntityInfo) {
+                await user.UserEntityInfo.update(entityData, { transaction: t });
+            } else {
+                await UserEntity.create({
+                    user_id: userId,
+                    ...entityData
+                }, { transaction: t });
+            }
+        }
+
+        // 3. Actualizar Customer si existe
+        const Customer = (await import('../models/customer.model.js')).default;
+        const customer = await Customer.findOne({ where: { idUser: userId } });
+        
+        if (customer) {
+            const customerData = {};
+            if (first_name !== undefined) customerData.first_name = first_name;
+            if (last_name !== undefined) customerData.first_last_name = last_name;
+            if (phone !== undefined) customerData.phone_number = phone;
+            if (address !== undefined) customerData.address = address;
+            if (user_user !== undefined) customerData.email = user_user;
+            
+            if (Object.keys(customerData).length > 0) {
+                await customer.update(customerData, { transaction: t });
+                console.log('Customer actualizado:', customer.customer_id);
+            }
+        }
+
+        await t.commit();
+
+        const updated = await User.findByPk(userId, {
+            attributes: { exclude: ["user_password"] },
+            include: [
+                { model: UserEntity, as: "UserEntityInfo" },
+                { model: Role }
+            ]
+        });
+
+        return res.status(200).json({
+            message: "Profile updated successfully",
+            user: {
+                user_id: updated.user_id,
+                username: updated.user_user,
+                role: updated.Role?.role_name,
+                entity: updated.UserEntityInfo
+            }
+        });
+
+    } catch (error) {
+        await t.rollback();
+        console.error("Error updating own profile:", error);
+        return res.status(500).json({ 
+            message: "Error updating profile", 
+            error: error.message 
+        });
+    }
+};
