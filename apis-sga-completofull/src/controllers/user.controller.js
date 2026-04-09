@@ -21,101 +21,61 @@ const handleSequelizeError = (res, error, defaultMessage) => {
             details: error.errors.map(e => e.message)
         });
     }
-
     if (error.name === "SequelizeValidationError") {
         return res.status(400).json({
             message: "Validation failed.",
             details: error.errors.map(e => e.message)
         });
     }
-
     console.error(error);
-
-    return res.status(500).json({
-        message: defaultMessage,
-        error: error.message
-    });
+    return res.status(500).json({ message: defaultMessage, error: error.message });
 };
 
 
-
 // ----------------------------------------------------
-// 🌐 REGISTRO PÚBLICO — para el formulario del frontend
-// Crea User + UserEntity + Customer en una sola transacción.
-// El rol "cliente" se asigna automáticamente — el frontend
-// no necesita enviar role_id.
-// Campos requeridos: nombre, correo, contraseña
-// Campos opcionales: telefono
+// 🌐 REGISTRO PÚBLICO
+// Crea User + UserEntity + Customer en una transacción.
+// El rol "cliente" se asigna automáticamente.
 // ----------------------------------------------------
 export const registerUser = async (req, res) => {
     const t = await sequelize.transaction();
-
     try {
         const { nombre, correo, contrasena, confirmar_contrasena, telefono } = req.body;
 
-        // 1. Validar campos requeridos
         if (!nombre || !correo || !contrasena || !confirmar_contrasena) {
             await t.rollback();
-            return res.status(400).json({
-                message: "Los campos nombre, correo, contraseña y confirmar contraseña son obligatorios."
-            });
+            return res.status(400).json({ message: "Los campos nombre, correo, contraseña y confirmar contraseña son obligatorios." });
         }
 
-        // 2. Verificar que las contraseñas coincidan
         if (contrasena !== confirmar_contrasena) {
             await t.rollback();
-            return res.status(400).json({
-                message: "Las contraseñas no coinciden."
-            });
+            return res.status(400).json({ message: "Las contraseñas no coinciden." });
         }
 
-        // 3. Verificar que el correo no esté ya registrado
         const emailExiste = await Customer.findOne({ where: { email: correo } });
         if (emailExiste) {
             await t.rollback();
-            return res.status(409).json({
-                message: "Este correo ya está registrado."
-            });
+            return res.status(409).json({ message: "Este correo ya está registrado." });
         }
 
-        // 4. Buscar el rol "cliente" automáticamente — el frontend no lo envía
         const rolCliente = await Role.findOne({ where: { role_name: "cliente" } });
         if (!rolCliente) {
             await t.rollback();
-            return res.status(500).json({
-                message: "Error de configuración: el rol 'cliente' no existe en la base de datos."
-            });
+            return res.status(500).json({ message: "Error de configuración: el rol 'cliente' no existe en la base de datos." });
         }
 
-        // 5. Encriptar contraseña
         const hashed = bcrypt.hashSync(contrasena, 10);
 
-        // 6. Crear User (el correo se usa como username)
         const nuevoUser = await User.create(
-            {
-                user_user: correo,
-                user_password: hashed,
-                role_id: rolCliente.role_id
-            },
+            { user_user: correo, user_password: hashed, role_id: rolCliente.role_id },
             { transaction: t }
         );
 
-        // 7. Crear UserEntity con el nombre
-        // "nombre" se guarda completo en first_name para simplificar el registro.
-        // El admin puede completar apellidos después si lo necesita.
         await UserEntity.create(
-            {
-                user_id: nuevoUser.user_id,
-                first_name: nombre,
-                last_name: "",
-                phone: telefono || null,
-                address: null
-            },
+            { user_id: nuevoUser.user_id, first_name: nombre, last_name: "", phone: telefono || null, address: null },
             { transaction: t }
         );
 
-        // 8. Crear Customer con los datos básicos
-        // idDocType y documentNumber quedan null — se completan en la óptica.
         await Customer.create(
             {
                 idUser: nuevoUser.user_id,
@@ -129,13 +89,9 @@ export const registerUser = async (req, res) => {
             { transaction: t }
         );
 
-        // 9. Confirmar transacción — si algo falló arriba, nada se guarda
         await t.commit();
 
-        return res.status(201).json({
-            message: "Registro exitoso. Ya puedes iniciar sesión.",
-            user_id: nuevoUser.user_id
-        });
+        return res.status(201).json({ message: "Registro exitoso. Ya puedes iniciar sesión.", user_id: nuevoUser.user_id });
 
     } catch (error) {
         await t.rollback();
@@ -144,45 +100,28 @@ export const registerUser = async (req, res) => {
 };
 
 
-
 // ----------------------------------------------------
-// ➕ CREAR USUARIO + USERENTITY (uso interno del admin)
-// Este endpoint queda intacto para que el administrador
-// pueda crear usuarios con cualquier rol desde el panel.
+// ➕ CREAR USUARIO (uso interno del admin)
 // ----------------------------------------------------
 export const createUser = async (req, res) => {
     const t = await sequelize.transaction();
-
     try {
-
         const { user_user, user_password, role_id } = req.body;
 
         if (!user_user || !user_password || !role_id) {
-            return res.status(400).json({
-                message: "Missing required fields (user_user, user_password, role_id)."
-            });
+            return res.status(400).json({ message: "Missing required fields (user_user, user_password, role_id)." });
         }
 
-        // Verificar si el rol existe
         const role = await Role.findByPk(role_id);
-        if (!role) {
-            return res.status(400).json({ message: "Role does not exist." });
-        }
+        if (!role) return res.status(400).json({ message: "Role does not exist." });
 
-        // Encriptar contraseña
         const hashed = bcrypt.hashSync(user_password, 10);
 
-        // Crear usuario
         const newUser = await User.create(
-            {
-                user_user,
-                user_password: hashed,
-                role_id
-            },
+            { user_user, user_password: hashed, role_id },
             { transaction: t }
         );
 
-        // Crear UserEntity asociado
         await UserEntity.create(
             {
                 user_id: newUser.user_id,
@@ -195,11 +134,7 @@ export const createUser = async (req, res) => {
         );
 
         await t.commit();
-
-        return res.status(201).json({
-            message: "User created successfully.",
-            user_id: newUser.user_id
-        });
+        return res.status(201).json({ message: "User created successfully.", user_id: newUser.user_id });
 
     } catch (error) {
         await t.rollback();
@@ -208,13 +143,11 @@ export const createUser = async (req, res) => {
 };
 
 
-
 // ----------------------------------------------------
 // 📄 MOSTRAR TODOS LOS USUARIOS
 // ----------------------------------------------------
 export const showUser = async (req, res) => {
     try {
-
         const users = await User.findAll({
             attributes: { exclude: ["user_password"] },
             include: [
@@ -222,14 +155,11 @@ export const showUser = async (req, res) => {
                 { model: Role }
             ]
         });
-
         return res.json(users);
-
     } catch (error) {
         return handleSequelizeError(res, error, "Error fetching users");
     }
 };
-
 
 
 // ----------------------------------------------------
@@ -237,7 +167,6 @@ export const showUser = async (req, res) => {
 // ----------------------------------------------------
 export const showUserId = async (req, res) => {
     try {
-
         const user = await User.findByPk(req.params.id, {
             attributes: { exclude: ["user_password"] },
             include: [
@@ -245,26 +174,19 @@ export const showUserId = async (req, res) => {
                 { model: Role }
             ]
         });
-
-        if (!user) {
-            return res.status(404).json({ message: "User not found." });
-        }
-
+        if (!user) return res.status(404).json({ message: "User not found." });
         return res.json(user);
-
     } catch (error) {
         return handleSequelizeError(res, error, "Error fetching user by ID");
     }
 };
 
 
-
 // ----------------------------------------------------
-// ✏️ ACTUALIZAR USUARIO + USERENTITY (Transacción)
+// ✏️ ACTUALIZAR USUARIO por ID (solo admin)
 // ----------------------------------------------------
 export const updateUser = async (req, res) => {
     const t = await sequelize.transaction();
-
     try {
         const id = req.params.id;
 
@@ -289,10 +211,8 @@ export const updateUser = async (req, res) => {
         }
 
         const dataToUpdate = {};
-
         if (user_user !== undefined) dataToUpdate.user_user = user_user;
-        if (role_id !== undefined) dataToUpdate.role_id = role_id;
-
+        if (role_id !== undefined)   dataToUpdate.role_id   = role_id;
         if (user_password !== undefined) {
             dataToUpdate.user_password = bcrypt.hashSync(user_password, 10);
         }
@@ -303,30 +223,16 @@ export const updateUser = async (req, res) => {
 
         const entityFields = ["first_name", "last_name", "phone", "address"];
         const entityData = {};
-
         entityFields.forEach(f => {
-            if (req.body[f] !== undefined && req.body[f] !== null) {
-                entityData[f] = req.body[f];
-            }
+            if (req.body[f] !== undefined && req.body[f] !== null) entityData[f] = req.body[f];
         });
 
         if (Object.keys(entityData).length > 0) {
-            // Buscar UserEntity por user_id
-            const userEntity = await UserEntity.findOne({
-                where: { user_id: id }
-            });
-            
+            const userEntity = await UserEntity.findOne({ where: { user_id: id } });
             if (userEntity) {
-                // Actualizar usando el UUID
                 await userEntity.update(entityData, { transaction: t });
-                console.log('UserEntity updated:', userEntity.id);
             } else {
-                // Crear si no existe
-                await UserEntity.create({
-                    user_id: id,
-                    ...entityData
-                }, { transaction: t });
-                console.log('UserEntity created for user:', id);
+                await UserEntity.create({ user_id: id, ...entityData }, { transaction: t });
             }
         }
 
@@ -345,13 +251,9 @@ export const updateUser = async (req, res) => {
     } catch (error) {
         await t.rollback();
         console.error('ERROR en updateUser:', error);
-        return res.status(500).json({ 
-            message: "Error updating user", 
-            error: error.message 
-        });
+        return res.status(500).json({ message: "Error updating user", error: error.message });
     }
 };
-
 
 
 // ----------------------------------------------------
@@ -360,35 +262,32 @@ export const updateUser = async (req, res) => {
 export const deleteUser = async (req, res) => {
     try {
         const id = req.params.id;
-
         const user = await User.findByPk(id);
-        if (!user) {
-            return res.status(404).json({ message: "User not found." });
-        }
-
-        await user.destroy(); // CASCADE asegura borrar UserEntity
-
+        if (!user) return res.status(404).json({ message: "User not found." });
+        await user.destroy();
         return res.json({ message: "User and entity deleted successfully." });
-
     } catch (error) {
-        return res.status(500).json({
-            message: "Error deleting user.",
-            error: error.message
-        });
+        return res.status(500).json({ message: "Error deleting user.", error: error.message });
     }
 };
 
-// Actualizar el propio perfil del usuario autenticado
+
+// ----------------------------------------------------
+// 👤 ACTUALIZAR PROPIO PERFIL — ruta: PUT /user/profile
+// Solo requiere verifyToken. Actualiza User + UserEntity + Customer.
+// NOTA: Para el cliente de la app móvil el endpoint principal es
+//       PUT /customer/profile — este endpoint es alternativo y
+//       también funciona correctamente sin restricción de rol.
+// ----------------------------------------------------
 export const updateOwnProfile = async (req, res) => {
     const t = await sequelize.transaction();
-
     try {
         const userId = req.user.user_id;
 
         const user = await User.findByPk(userId, {
             include: [{ model: UserEntity, as: "UserEntityInfo" }]
         });
-        
+
         if (!user) {
             await t.rollback();
             return res.status(404).json({ message: "User not found." });
@@ -396,7 +295,7 @@ export const updateOwnProfile = async (req, res) => {
 
         const { user_user, first_name, last_name, phone, address } = req.body;
 
-        // 1. Actualizar User (email)
+        // 1. Actualizar User (email/username)
         if (user_user !== undefined && user_user !== user.user_user) {
             user.user_user = user_user;
             await user.save({ transaction: t });
@@ -405,35 +304,30 @@ export const updateOwnProfile = async (req, res) => {
         // 2. Actualizar UserEntity
         const entityData = {};
         if (first_name !== undefined) entityData.first_name = first_name;
-        if (last_name !== undefined) entityData.last_name = last_name;
-        if (phone !== undefined) entityData.phone = phone;
-        if (address !== undefined) entityData.address = address;
+        if (last_name  !== undefined) entityData.last_name  = last_name;
+        if (phone      !== undefined) entityData.phone      = phone;
+        if (address    !== undefined) entityData.address    = address;
 
         if (Object.keys(entityData).length > 0) {
             if (user.UserEntityInfo) {
                 await user.UserEntityInfo.update(entityData, { transaction: t });
-                console.log('✅ UserEntity actualizado');
             } else {
-                await UserEntity.create({
-                    user_id: userId,
-                    ...entityData
-                }, { transaction: t });
-                console.log('✅ UserEntity creado');
+                await UserEntity.create({ user_id: userId, ...entityData }, { transaction: t });
             }
         }
 
-        // 3. Actualizar Customer (si existe)
-        const Customer = (await import('../models/customer.model.js')).default;
-        const customer = await Customer.findOne({ where: { idUser: userId } });
-        
+        // 3. Actualizar Customer con los nombres de campo CORRECTOS del modelo
+        const customer = await Customer.findOne({ where: { idUser: userId }, transaction: t });
+
         if (customer) {
             const customerData = {};
-            if (first_name !== undefined) customerData.first_name = first_name;
-            if (last_name !== undefined) customerData.first_last_name = last_name;
-            if (phone !== undefined) customerData.phone_number = phone;
-            if (address !== undefined) customerData.address = address;
-            if (user_user !== undefined) customerData.email = user_user;
-            
+            // Los campos del modelo Customer son: firstName, firstLastName, phoneNumber, email
+            if (first_name  !== undefined) customerData.firstName     = first_name;
+            if (last_name   !== undefined) customerData.firstLastName = last_name;
+            if (phone       !== undefined) customerData.phoneNumber   = phone;
+            if (user_user   !== undefined) customerData.email         = user_user;
+            // address no existe en Customer, solo en UserEntity
+
             if (Object.keys(customerData).length > 0) {
                 await customer.update(customerData, { transaction: t });
                 console.log('✅ Customer actualizado:', customer.customer_id);
@@ -453,21 +347,21 @@ export const updateOwnProfile = async (req, res) => {
         });
 
         return res.status(200).json({
-            message: "Profile updated successfully",
+            message: "Perfil actualizado correctamente",
             user: {
-                user_id: updated.user_id,
+                user_id:  updated.user_id,
                 username: updated.user_user,
-                role: updated.Role?.role_name,
-                entity: updated.UserEntityInfo
+                role:     updated.Role?.role_name,
+                entity:   updated.UserEntityInfo
             }
         });
 
     } catch (error) {
         await t.rollback();
-        console.error("Error updating own profile:", error);
-        return res.status(500).json({ 
-            message: "Error updating profile", 
-            error: error.message 
-        });
+        console.error("Error en updateOwnProfile:", error);
+        if (error.name === 'SequelizeUniqueConstraintError') {
+            return res.status(409).json({ message: "El correo ya está en uso por otro usuario." });
+        }
+        return res.status(500).json({ message: "Error updating profile", error: error.message });
     }
 };

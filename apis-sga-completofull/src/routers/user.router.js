@@ -1,3 +1,4 @@
+// src/routers/user.router.js
 import { Router } from "express";
 import { verifyToken } from "../middlewares/verifyToken.js";
 import { isAdmin } from "../middlewares/isAdmin.js";
@@ -16,11 +17,11 @@ import { loginUser } from "../controllers/auth.controller.js";
 
 const router = Router();
 
-// ----------------------------------------------------
-// 🔓 RUTAS PÚBLICAS (sin token)
-// ----------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
+// RUTAS PÚBLICAS (sin token)
+// ─────────────────────────────────────────────────────────────────────────────
 
-// Registro público desde el frontend — asigna rol "cliente" automáticamente
+// Registro público — asigna rol "cliente" automáticamente
 router.post("/auth/register", registerUser);
 
 // Login — devuelve token JWT
@@ -29,12 +30,9 @@ router.post("/auth/login", loginUser);
 // Registro interno del admin — permite especificar cualquier rol
 router.post("/user/register", verifyToken, isAdmin, createUser);
 
-router.put("/user/profile", verifyToken, updateOwnProfile);
-
-
-// ----------------------------------------------------
-// 🔐 RUTAS PROTEGIDAS (requieren token)
-// ----------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
+// RUTAS PROTEGIDAS
+// ─────────────────────────────────────────────────────────────────────────────
 
 // Ver todos los usuarios (solo admin)
 router.get("/user", verifyToken, isAdmin, showUser);
@@ -42,13 +40,15 @@ router.get("/user", verifyToken, isAdmin, showUser);
 // Ver usuario por ID (solo admin)
 router.get("/user/:id", verifyToken, isAdmin, showUserId);
 
-// Actualizar usuario (solo admin)
+// ⚠️  CRÍTICO: /user/profile DEBE ir ANTES de /user/:id
+//     Si va después, Express captura "profile" como :id y aplica isAdmin,
+//     bloqueando al cliente. Esta ruta permite al usuario actualizar su propio perfil.
+router.put("/user/profile", verifyToken, updateOwnProfile);
+
+// Actualizar usuario por ID (solo admin)
 router.put("/user/:id", verifyToken, isAdmin, updateUser);
 
 // Eliminar usuario (solo admin)
 router.delete("/user/:id", verifyToken, isAdmin, deleteUser);
-
-// Actualizar propio perfil
-router.put("/user/profile", verifyToken, updateOwnProfile);
 
 export default router;
