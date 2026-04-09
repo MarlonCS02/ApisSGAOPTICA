@@ -412,15 +412,17 @@ export const updateOwnProfile = async (req, res) => {
         if (Object.keys(entityData).length > 0) {
             if (user.UserEntityInfo) {
                 await user.UserEntityInfo.update(entityData, { transaction: t });
+                console.log('✅ UserEntity actualizado');
             } else {
                 await UserEntity.create({
                     user_id: userId,
                     ...entityData
                 }, { transaction: t });
+                console.log('✅ UserEntity creado');
             }
         }
 
-        // 3. Actualizar Customer si existe
+        // 3. Actualizar Customer (si existe)
         const Customer = (await import('../models/customer.model.js')).default;
         const customer = await Customer.findOne({ where: { idUser: userId } });
         
@@ -434,8 +436,10 @@ export const updateOwnProfile = async (req, res) => {
             
             if (Object.keys(customerData).length > 0) {
                 await customer.update(customerData, { transaction: t });
-                console.log('Customer actualizado:', customer.customer_id);
+                console.log('✅ Customer actualizado:', customer.customer_id);
             }
+        } else {
+            console.log('⚠️ Customer no encontrado para userId:', userId);
         }
 
         await t.commit();
