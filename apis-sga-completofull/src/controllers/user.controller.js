@@ -268,17 +268,22 @@ export const updateUser = async (req, res) => {
     try {
         const id = req.params.id;
 
+        console.log('=== UPDATE USER ===');
+        console.log('User ID:', id);
+        console.log('Request Body:', req.body);
+
         const user = await User.findByPk(id);
         if (!user) {
+            await t.rollback();
             return res.status(404).json({ message: "User not found." });
         }
 
         const { user_user, user_password, role_id } = req.body;
 
-        // Validar rol si lo envían
         if (role_id !== undefined) {
             const checkRole = await Role.findByPk(role_id);
             if (!checkRole) {
+                await t.rollback();
                 return res.status(400).json({ message: "Role does not exist." });
             }
         }
@@ -292,24 +297,37 @@ export const updateUser = async (req, res) => {
             dataToUpdate.user_password = bcrypt.hashSync(user_password, 10);
         }
 
-        // Actualizar USER
-        await user.update(dataToUpdate, { transaction: t });
+        if (Object.keys(dataToUpdate).length > 0) {
+            await user.update(dataToUpdate, { transaction: t });
+        }
 
-        // USERENTITY
         const entityFields = ["first_name", "last_name", "phone", "address"];
         const entityData = {};
 
         entityFields.forEach(f => {
-            if (req.body[f] !== undefined) {
+            if (req.body[f] !== undefined && req.body[f] !== null) {
                 entityData[f] = req.body[f];
             }
         });
 
         if (Object.keys(entityData).length > 0) {
-            await UserEntity.update(entityData, {
-                where: { user_id: id },
-                transaction: t
+            // Buscar UserEntity por user_id
+            const userEntity = await UserEntity.findOne({
+                where: { user_id: id }
             });
+            
+            if (userEntity) {
+                // Actualizar usando el UUID
+                await userEntity.update(entityData, { transaction: t });
+                console.log('UserEntity updated:', userEntity.id);
+            } else {
+                // Crear si no existe
+                await UserEntity.create({
+                    user_id: id,
+                    ...entityData
+                }, { transaction: t });
+                console.log('UserEntity created for user:', id);
+            }
         }
 
         await t.commit();
@@ -322,11 +340,15 @@ export const updateUser = async (req, res) => {
             ]
         });
 
-        return res.json(updated);
+        return res.status(200).json(updated);
 
     } catch (error) {
         await t.rollback();
-        return handleSequelizeError(res, error, "Error updating user");
+        console.error('ERROR en updateUser:', error);
+        return res.status(500).json({ 
+            message: "Error updating user", 
+            error: error.message 
+        });
     }
 };
 

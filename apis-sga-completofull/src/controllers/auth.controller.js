@@ -64,3 +64,57 @@ export const loginUser = async (req, res) => {
         });
     }
 };
+
+export const updateUserProfile = async (req, res) => {
+    try {
+        const { user_id } = req.user; // Asumiendo que tienes middleware de autenticación
+        const { first_name, last_name, email, phone, address } = req.body;
+
+        // Buscar el usuario
+        const user = await User.findByPk(user_id, {
+            include: [{ model: UserEntity, as: "UserEntityInfo" }]
+        });
+
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        // Actualizar email si se proporciona y es diferente
+        if (email && email !== user.user_user) {
+            const existingUser = await User.findOne({ where: { user_user: email } });
+            if (existingUser && existingUser.user_id !== user_id) {
+                return res.status(409).json({ message: "Email already in use" });
+            }
+            user.user_user = email;
+        }
+
+        // Actualizar UserEntity
+        if (user.UserEntityInfo) {
+            if (first_name !== undefined) user.UserEntityInfo.first_name = first_name;
+            if (last_name !== undefined) user.UserEntityInfo.last_name = last_name;
+            if (phone !== undefined) user.UserEntityInfo.phone = phone;
+            if (address !== undefined) user.UserEntityInfo.address = address;
+            
+            await user.UserEntityInfo.save();
+        }
+
+        await user.save();
+
+        return res.json({
+            message: "Profile updated successfully",
+            user: {
+                user_id: user.user_id,
+                username: user.user_user,
+                role: user.Role?.role_name,
+                entity: user.UserEntityInfo
+            }
+        });
+
+    } catch (error) {
+        console.error('Update profile error:', error);
+        return res.status(500).json({
+            message: "Error updating profile",
+            error: error.message
+        });
+    }
+};

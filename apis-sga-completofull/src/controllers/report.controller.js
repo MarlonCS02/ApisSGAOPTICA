@@ -1,98 +1,122 @@
-import { Op } from "sequelize";
-import Sale from "../models/sale.model.js";
-import Appointment from "../models/appointment.model.js";
-import Customer from "../models/customer.model.js";
-import PaymentType from "../models/paymentType.model.js";
-import Optometrist from "../models/optometrist.model.js";
-import ExamType from "../models/examType.model.js";
+// src/controllers/report.controller.js
+import { Op } from 'sequelize';
+import Notification from '../models/notification.model.js';
+import Appointment from '../models/appointment.model.js';
+import Customer from '../models/customer.model.js';
+import User from '../models/user.model.js';
+import UserEntity from '../models/userEntity.model.js';
 
 // ----------------------------------------------------
-// UTILITY: Manejador de Errores
+// 🛠️ Manejador de Errores
 // ----------------------------------------------------
-const handleError = (res, error, defaultMessage) => {
-    console.error("Error en reporte:", error);
+const handleSequelizeError = (res, error, defaultMessage) => {
+    console.error("Error en Reporte:", error);
     return res.status(500).json({ 
         message: defaultMessage, 
         error: error.message 
     });
 };
 
-// =============================================
-// REPORTE DE VENTAS POR RANGO DE FECHAS
-// =============================================
-export const getSalesReportByDate = async (req, res) => {
+// ----------------------------------------------------
+// REPORTE 1: Notificaciones de Citas por Rango de Fechas
+// ----------------------------------------------------
+export const getAppointmentNotificationsReport = async (req, res) => {
     try {
         const { startDate, endDate } = req.query;
 
-        // Validación
+        // Validación de parámetros
         if (!startDate || !endDate) {
             return res.status(400).json({ 
-                message: "the parameters 'startDate' and 'endDate' are required (format: YYYY-MM-DD)" 
+                message: "Se requieren startDate y endDate" 
             });
         }
 
-        // Consulta a la tabla SALE (existente)
-        const sales = await Sale.findAll({
+        // Validar que las fechas sean válidas
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        if (isNaN(start) || isNaN(end)) {
+            return res.status(400).json({ 
+                message: "Fechas inválidas" 
+            });
+        }
+
+        // Buscar notificaciones relacionadas con citas en el rango de fechas
+        const notifications = await Notification.findAll({
             where: {
-                dateSale: {
-                    [Op.between]: [startDate, endDate]
+                sent_at: {
+                    [Op.between]: [start, end]
+                },
+                type: {
+                    [Op.in]: ['APPOINTMENT_REMINDER', 'APPOINTMENT_CONFIRMED', 'APPOINTMENT_CANCELLED']
                 }
             },
             include: [
                 { 
-                    model: Customer, 
-                    attributes: ["customer_id", "firstName", "firstLastName"] 
+                    model: Customer,
+                    attributes: ['customer_id', 'firstName', 'firstLastName', 'phoneNumber', 'email']
                 },
                 { 
-                    model: PaymentType, 
-                    attributes: ["id", "name"] 
+                    model: Appointment,
+                    attributes: ['appointment_id', 'date', 'time', 'status']
                 }
             ],
-            order: [["dateSale", "ASC"]]
+            order: [['sent_at', 'DESC']]
         });
 
-        // Cálculo de estadísticas
-        const totalSales = sales.length;
-        const totalRevenue = sales.reduce((sum, sale) => sum + sale.total, 0);
-        const averageTicket = totalSales > 0 ? totalRevenue / totalSales : 0;
+        // Estadísticas del reporte
+        const stats = {
+            total: notifications.length,
+            byType: {},
+            byStatus: {},
+            byMonth: {}
+        };
 
-        // Agrupar por tipo de pago
-        const byPaymentType = {};
-        sales.forEach(sale => {
-            const paymentName = sale.PaymentType?.name || "Not specified";
-            byPaymentType[paymentName] = (byPaymentType[paymentName] || 0) + 1;
+        // Procesar estadísticas
+        notifications.forEach(notif => {
+            // Por tipo de notificación
+            stats.byType[notif.type] = (stats.byType[notif.type] || 0) + 1;
+            
+            // Por estado de notificación
+            stats.byStatus[notif.status] = (stats.byStatus[notif.status] || 0) + 1;
+            
+            // Por mes
+            const month = new Date(notif.sent_at).toLocaleString('es-ES', { month: 'long', year: 'numeric' });
+            stats.byMonth[month] = (stats.byMonth[month] || 0) + 1;
         });
 
         res.status(200).json({
-            periodo: { startDate, endDate },
-            resumen: {
-                totalVentas: totalSales,
-                ingresosTotales: totalRevenue,
-                ticketPromedio: averageTicket
+            success: true,
+            periodo: { 
+                startDate: start.toISOString().split('T')[0], 
+                endDate: end.toISOString().split('T')[0] 
             },
-            porTipoPago: byPaymentType,
-            detalles: sales
+            estadisticas: stats,
+            notificaciones: notifications,
+            generatedAt: new Date().toISOString()
         });
 
     } catch (error) {
-        handleError(res, error, "Error generating sales report");
+        handleSequelizeError(res, error, "Error al generar reporte de notificaciones");
     }
 };
 
-// =============================================
-// REPORTE DE CITAS POR RANGO DE FECHAS
-// =============================================
-export const getAppointmentsReportByDate = async (req, res) => {
+// ----------------------------------------------------
+// REPORTE 2: Estado de Citas por Rango de Fechas
+// ----------------------------------------------------
+export const getAppointmentsStatusReport = async (req, res) => {
     try {
         const { startDate, endDate } = req.query;
 
         if (!startDate || !endDate) {
             return res.status(400).json({ 
-                message: "the parameters 'startDate' and 'endDate' are required" 
+                message: "Se requieren startDate y endDate" 
             });
         }
 
-        // Consulta a la tabla APPOINTMENT (existente)
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+
+        // Consultar citas directamente
         const appointments = await Appointment.findAll({
             where: {
                 date: {
@@ -101,171 +125,132 @@ export const getAppointmentsReportByDate = async (req, res) => {
             },
             include: [
                 { 
-                    model: Customer, 
-                    attributes: ["customer_id", "firstName", "firstLastName", "phoneNumber"] 
+                    model: Customer,
+                    attributes: ['customer_id', 'firstName', 'firstLastName', 'phoneNumber']
                 },
-                { 
-                    model: Optometrist, 
-                    attributes: ["id", "firstName", "firstLastName"] 
-                },
-                { 
-                    model: ExamType, 
-                    attributes: ["id", "name"] 
+                {
+                    model: User,
+                    include: [{
+                        model: UserEntity,
+                        as: 'UserEntityInfo',
+                        attributes: ['first_name', 'last_name']
+                    }]
                 }
             ],
-            order: [["date", "ASC"], ["time", "ASC"]]
+            order: [['date', 'ASC'], ['time', 'ASC']]
         });
 
-        // Estadísticas por estado
-        const byStatus = {
-            pendientes: 0,
-            completadas: 0,
-            canceladas: 0
-        };
-
-        const byOptometrist = {};
-        const byExamType = {};
-
-        appointments.forEach(apt => {
-            // Por estado
-            byStatus[apt.status] = (byStatus[apt.status] || 0) + 1;
-            
-            // Por optómetra
-            const optoName = apt.Optometrist ? `${apt.Optometrist.firstName} ${apt.Optometrist.firstLastName}` : "Not assigned";
-            byOptometrist[optoName] = (byOptometrist[optoName] || 0) + 1;
-            
-            // Por tipo de examen
-            const examName = apt.ExamType?.name || "Not specified";
-            byExamType[examName] = (byExamType[examName] || 0) + 1;
-        });
-
-        res.status(200).json({
-            periodo: { startDate, endDate },
-            resumen: {
-                totalCitas: appointments.length,
-                porEstado: byStatus
-            },
-            porOptometra: byOptometrist,
-            porTipoExamen: byExamType,
-            detalles: appointments
-        });
-
-    } catch (error) {
-        handleError(res, error, "Error generating appointments report");
-    }
-};
-
-// =============================================
-// REPORTE DE CITAS POR CLIENTE
-// =============================================
-export const getCustomerAppointmentsReport = async (req, res) => {
-    try {
-        const { customerId, startDate, endDate } = req.query;
-
-        if (!customerId) {
-            return res.status(400).json({ message: "The parameter 'customerId' is required" });
-        }
-
-        // Verificar que el cliente existe
-        const customer = await Customer.findByPk(customerId, {
-            attributes: ["customer_id", "firstName", "firstLastName", "phoneNumber", "email"]
-        });
-
-        if (!customer) {
-            return res.status(404).json({ message: "Customer not found" });
-        }
-
-        // Construir condición WHERE
-        const whereCondition = { customer_id: customerId };
-        
-        if (startDate && endDate) {
-            whereCondition.date = {
-                [Op.between]: [startDate, endDate]
-            };
-        }
-
-        const appointments = await Appointment.findAll({
-            where: whereCondition,
-            include: [
-                { model: Optometrist, attributes: ["firstName", "firstLastName"] },
-                { model: ExamType, attributes: ["name", "description"] }
-            ],
-            order: [["date", "DESC"], ["time", "DESC"]]
-        });
-
-        // Estadísticas del cliente
+        // Estadísticas de citas
         const stats = {
             total: appointments.length,
-            completadas: appointments.filter(a => a.status === "completada").length,
-            canceladas: appointments.filter(a => a.status === "cancelada").length,
-            pendientes: appointments.filter(a => a.status === "pendiente").length
+            pendientes: appointments.filter(a => a.status === 'pendiente').length,
+            confirmadas: appointments.filter(a => a.status === 'confirmada').length,
+            completadas: appointments.filter(a => a.status === 'completada').length,
+            canceladas: appointments.filter(a => a.status === 'cancelada').length,
+            reagendadas: appointments.filter(a => a.status === 'reagendada').length
         };
 
+        // Agrupar por fecha
+        const byDate = {};
+        appointments.forEach(apt => {
+            const dateStr = apt.date;
+            if (!byDate[dateStr]) {
+                byDate[dateStr] = { 
+                    total: 0, 
+                    pendientes: 0, 
+                    confirmadas: 0,
+                    completadas: 0, 
+                    canceladas: 0,
+                    reagendadas: 0
+                };
+            }
+            byDate[dateStr].total++;
+            if (apt.status === 'pendiente') byDate[dateStr].pendientes++;
+            if (apt.status === 'confirmada') byDate[dateStr].confirmadas++;
+            if (apt.status === 'completada') byDate[dateStr].completadas++;
+            if (apt.status === 'cancelada') byDate[dateStr].canceladas++;
+            if (apt.status === 'reagendada') byDate[dateStr].reagendadas++;
+        });
+
+        // Agrupar por hora
+        const byHour = {};
+        appointments.forEach(apt => {
+            const hour = apt.time?.split(':')[0] || '00';
+            if (!byHour[hour]) byHour[hour] = 0;
+            byHour[hour]++;
+        });
+
         res.status(200).json({
-            cliente: customer,
-            periodo: startDate && endDate ? { startDate, endDate } : "All history",
-            estadisticas: stats,
-            citas: appointments
+            success: true,
+            periodo: { startDate, endDate },
+            resumen: stats,
+            porFecha: byDate,
+            porHora: byHour,
+            detalles: appointments,
+            generatedAt: new Date().toISOString()
         });
 
     } catch (error) {
-        handleError(res, error, "Error generating appointments report by customer");
+        handleSequelizeError(res, error, "Error al generar reporte de citas");
     }
 };
 
-// =============================================
-// REPORTE DE PRODUCTOS MÁS VENDIDOS
-// =============================================
-export const getTopProductsReport = async (req, res) => {
+// ----------------------------------------------------
+// REPORTE 3: Historial de Recordatorios Enviados
+// ----------------------------------------------------
+export const getRemindersHistory = async (req, res) => {
     try {
-        const { startDate, endDate, limit = 10 } = req.query;
+        const { customerId, limit = 50, startDate, endDate } = req.query;
 
-        // Importar modelos necesarios
-        const SaleProduct = (await import("../models/saleProduct.model.js")).default;
-        const Product = (await import("../models/product.model.js")).default;
-        const Sale = (await import("../models/sale.model.js")).default;
-        const sequelize = (await import("../config/connect.db.js")).default;
+        const whereCondition = {
+            type: 'APPOINTMENT_REMINDER'
+        };
 
-        // Construir condición de fecha
-        const dateCondition = {};
+        // Si se especifica un cliente, filtrar por él
+        if (customerId && customerId !== 'undefined') {
+            whereCondition.customer_id = customerId;
+        }
+
+        // Si se especifica rango de fechas
         if (startDate && endDate) {
-            dateCondition.dateSale = {
-                [Op.between]: [startDate, endDate]
+            whereCondition.sent_at = {
+                [Op.between]: [new Date(startDate), new Date(endDate)]
             };
         }
 
-        const topProducts = await SaleProduct.findAll({
-            attributes: [
-                "productId",
-                [sequelize.fn("SUM", sequelize.col("quantity")), "totalSold"],
-                [sequelize.fn("SUM", sequelize.col("sellPrice")), "totalRevenue"],
-                [sequelize.fn("COUNT", sequelize.col("saleId")), "numberOfSales"]
-            ],
+        const reminders = await Notification.findAll({
+            where: whereCondition,
             include: [
                 { 
-                    model: Product, 
-                    attributes: ["id", "nameProduct", "unitPrice", "stock"] 
+                    model: Customer,
+                    attributes: ['customer_id', 'firstName', 'firstLastName', 'phoneNumber', 'email']
                 },
                 { 
-                    model: Sale,
-                    where: dateCondition,
-                    attributes: [],
-                    required: startDate && endDate // Si hay fechas, hacer INNER JOIN
+                    model: Appointment,
+                    attributes: ['appointment_id', 'date', 'time', 'status']
                 }
             ],
-            group: ["productId", "Product.id"],
-            order: [[sequelize.literal("totalSold"), "DESC"]],
-            limit: parseInt(limit),
-            subQuery: false
+            order: [['sent_at', 'DESC']],
+            limit: parseInt(limit)
         });
 
+        // Estadísticas de recordatorios
+        const stats = {
+            total: reminders.length,
+            enviados: reminders.filter(r => r.status === 'SENT').length,
+            pendientes: reminders.filter(r => r.status === 'PENDING').length,
+            fallidos: reminders.filter(r => r.status === 'FAILED').length
+        };
+
         res.status(200).json({
-            periodo: startDate && endDate ? { startDate, endDate } : "All times",
-            totalProductos: topProducts.length,
-            productos: topProducts
+            success: true,
+            total: reminders.length,
+            estadisticas: stats,
+            recordatorios: reminders,
+            generatedAt: new Date().toISOString()
         });
 
     } catch (error) {
-        handleError(res, error, "Error generating top products report");
+        handleSequelizeError(res, error, "Error al obtener historial de recordatorios");
     }
 };

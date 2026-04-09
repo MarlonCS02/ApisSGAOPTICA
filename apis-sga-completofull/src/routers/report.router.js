@@ -1,31 +1,27 @@
-// src/routers/report.router.js
-import express from "express";
-import {
-    getSalesReportByDate,
-    getAppointmentsReportByDate,
-    getCustomerAppointmentsReport,
-    getTopProductsReport
-} from "../controllers/report.controller.js";
+import { Router } from "express";
 import { verifyToken } from "../middlewares/verifyToken.js";
 import { isAdmin } from "../middlewares/isAdmin.js";
-import { isAdminOrEmployee } from "../middlewares/isAdminOrEmployee.js";
+import { 
+    getAppointmentNotificationsReport,
+    getAppointmentsStatusReport,
+    getRemindersHistory,
+    getSalesReport,
+    getInventoryReport
+} from "../controllers/report.controller.js";
 
-const router = express.Router();
+const router = Router();
 
-// GET - Reporte de ventas por fecha (admin y empleado)
-// GET /api/v1/reports/sales?startDate=2024-01-01&endDate=2024-01-31
-router.get("/reports/sales", verifyToken, isAdminOrEmployee, getSalesReportByDate);
+// Todas las rutas de reportes requieren autenticación y rol de admin
+router.use(verifyToken, isAdmin);
 
-// GET - Reporte de citas por fecha (admin y empleado)
-// GET /api/v1/reports/appointments?startDate=2024-01-01&endDate=2024-01-31
-router.get("/reports/appointment", verifyToken, isAdminOrEmployee, getAppointmentsReportByDate);
+// REPORTE 1: Notificaciones de citas por rango de fechas
+// GET /api/v1/reports/notifications?startDate=2024-01-01&endDate=2024-01-31
+router.get("/reports/notifications", getAppointmentNotificationsReport);
 
-// GET - Reporte de citas por cliente (admin, empleado y el propio cliente con token)
-// GET /api/v1/reports/customer-appointments?customerId=1
-router.get("/reports/customer-appointment", verifyToken, getCustomerAppointmentsReport);
+// REPORTE 2: Estado de citas por rango de fechas
+// GET /api/v1/reports/appointments/status?startDate=2024-01-01&endDate=2024-01-31
+router.get("/reports/appointments/status", getAppointmentsStatusReport);
 
-// GET - Productos más vendidos (solo admin)
-// GET /api/v1/reports/top-products?startDate=2024-01-01&endDate=2024-01-31&limit=5
-router.get("/reports/top-products", verifyToken, isAdmin, getTopProductsReport); // Este no esta sirviendo
-
-export default router;
+// REPORTE 3: Historial de recordatorios enviados
+// GET /api/v1/reports/reminders?customerId=123&limit=20
+router.get("/reports/reminders", getRemindersHistory);

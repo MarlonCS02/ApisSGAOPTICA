@@ -1,4 +1,3 @@
-// src/routers/user.router.js
 import { Router } from "express";
 import { verifyToken } from "../middlewares/verifyToken.js";
 import { isAdmin } from "../middlewares/isAdmin.js";
@@ -28,7 +27,6 @@ router.post("/auth/login", loginUser);
 
 // Registro interno del admin — permite especificar cualquier rol
 router.post("/user/register", verifyToken, isAdmin, createUser);
-
 
 // ----------------------------------------------------
 // 🔐 RUTAS PROTEGIDAS (requieren token)
