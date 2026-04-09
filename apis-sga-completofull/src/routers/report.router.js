@@ -23,3 +23,5 @@ router.get("/reports/appointments/status", getAppointmentsStatusReport);
 // REPORTE 3: Historial de recordatorios enviados
 // GET /api/v1/reports/reminders?customerId=123&limit=20
 router.get("/reports/reminders", getRemindersHistory);
+
+export default router;
