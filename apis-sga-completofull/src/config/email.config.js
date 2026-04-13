@@ -1,5 +1,8 @@
 // src/config/email.config.js
 import nodemailer from 'nodemailer';
+import dotenv from 'dotenv';
+
+dotenv.config();  // ← IMPORTANTE: Cargar variables de entorno
 
 // Configuración para Gmail
 let transporter = null;
@@ -9,12 +12,13 @@ try {
     transporter = nodemailer.createTransport({
         service: 'gmail',
         auth: {
-            user: 'marlon4753@gmail.com',
-            pass: process.env.EMAIL_APP_PASSWORD || 'TU_CONTRASEÑA_DE_APLICACION'
+            user: process.env.EMAIL_USER,     // ← AHORA USA LA VARIABLE DE ENTORNO
+            pass: process.env.EMAIL_PASS       // ← AHORA USA LA VARIABLE DE ENTORNO
         }
     });
     emailConfigured = true;
     console.log('✅ Configuración de email cargada');
+    console.log('📧 Enviando desde:', process.env.EMAIL_USER);
 } catch (error) {
     console.error('❌ Error configurando email:', error.message);
     emailConfigured = false;
@@ -24,15 +28,6 @@ export const sendPasswordResetEmail = async (toEmail, resetCode, nombre) => {
     // Si no está configurado, no intentar enviar
     if (!emailConfigured || !transporter) {
         console.log(`⚠️ Email no configurado. Código para ${toEmail}: ${resetCode}`);
-        return false;
-    }
-
-    // Solo enviar a dominios reales
-    const realDomains = ['gmail.com', 'hotmail.com', 'outlook.com', 'yahoo.com', 'icloud.com'];
-    const emailDomain = toEmail.split('@')[1]?.toLowerCase();
-    
-    if (!realDomains.includes(emailDomain)) {
-        console.log(`📧 Dominio ${emailDomain} no es real. Código para ${toEmail}: ${resetCode}`);
         return false;
     }
 
@@ -60,14 +55,15 @@ export const sendPasswordResetEmail = async (toEmail, resetCode, nombre) => {
 
     try {
         await transporter.sendMail({
-            from: '"S.G.A Óptica" <marlon4753@gmail.com>',
+            from: `"S.G.A Óptica" <${process.env.EMAIL_USER}>`,
             to: toEmail,
             subject: '🔐 Código de recuperación de contraseña - S.G.A Óptica',
             html: htmlContent
         });
+        console.log(`✅ Email enviado a ${toEmail}`);
         return true;
     } catch (error) {
-        console.error(`Error enviando email a ${toEmail}:`, error.message);
+        console.error(`❌ Error enviando email a ${toEmail}:`, error.message);
         return false;
     }
 };
