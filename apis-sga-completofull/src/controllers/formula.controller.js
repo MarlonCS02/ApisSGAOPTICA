@@ -148,6 +148,102 @@ export const getFormulasByCustomer = async (req, res) => {
 // --------------------------------------------- //
 
 
+// ------ CLIENTE: SUBIR SU PROPIA FORMULA ------ //
+export const uploadMyFormula = async (req, res) => {
+    try {
+        const { user_id } = req.user;
+        const { description } = req.body;
+
+        if (!req.file) {
+            return res.status(400).json({ message: "Must upload a file (Formula document)." });
+        }
+
+        // Buscar el cliente asociado al usuario logueado
+        const customer = await Customer.findOne({ where: { idUser: user_id } });
+        if (!customer) {
+            return res.status(404).json({ message: "Customer profile not found for this user" });
+        }
+
+        const file = req.file;
+
+        const formula = await Formula.create({
+            customerId: customer.customer_id,
+            uploadedById: user_id,
+            filePath: `/uploads/formulas/${file.filename}`,
+            fileName: file.originalname,
+            fileType: file.mimetype,
+            uploadedAt: new Date(),
+            description: description || null
+        });
+
+        res.status(201).json({
+            message: "Formula uploaded successfully",
+            formula
+        });
+    } catch (error) {
+        handleSequelizeError(res, error, "Error uploading your formula");
+    }
+};
+// ---------------------------------------------- //
+
+
+// ------ CLIENTE: VER SUS PROPIAS FORMULAS ------ //
+export const getMyFormulas = async (req, res) => {
+    try {
+        const { user_id } = req.user;
+
+        // Buscar customer del usuario
+        const customer = await Customer.findOne({ where: { idUser: user_id } });
+        if (!customer) {
+            return res.status(404).json({ message: "Customer profile not found for this user" });
+        }
+
+        const formulas = await Formula.findAll({
+            where: { customerId: customer.customer_id },
+            order: [['uploadedAt', 'DESC']]
+        });
+
+        res.status(200).json(formulas);
+    } catch (error) {
+        handleSequelizeError(res, error, "Error fetching your formulas");
+    }
+};
+// ---------------------------------------------- //
+
+
+// ------ OPTOMETRA: VER TODAS LAS FORMULAS CON INFO DE CLIENTES Y CITAS ------ //
+export const getFormulasWithCustomerInfo = async (req, res) => {
+    try {
+        const Appointment = (await import("../models/appointment.model.js")).default;
+
+        const formulas = await Formula.findAll({
+            include: [
+                { model: Customer }
+            ],
+            order: [['uploadedAt', 'DESC']]
+        });
+
+        // Para cada fórmula, obtener las citas del cliente
+        const result = await Promise.all(formulas.map(async (formula) => {
+            const appointments = await Appointment.findAll({
+                where: { customer_id: formula.customerId },
+                order: [['appointment_date', 'DESC']],
+                limit: 5
+            });
+            return {
+                ...formula.toJSON(),
+                appointments
+            };
+        }));
+
+        res.status(200).json(result);
+    } catch (error) {
+        handleSequelizeError(res, error, "Error fetching formulas with customer info");
+    }
+};
+// ----------------------------------------------------------------------------- //
+
+
 // ------ BORRAR FORMULA ------ //
 export const deleteFormula = async (req, res) => {
     // Nota: Un borrado físico (destroy) es aceptable aquí, pero el archivo físico en el servidor (filePath) DEBE borrarse manualmente.
