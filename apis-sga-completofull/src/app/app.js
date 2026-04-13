@@ -41,6 +41,9 @@ app.use("/uploads", express.static(path.join(__dirname, '..', 'public', 'uploads
 // Archivos estáticos para productos
 app.use("/uploads/products", express.static(path.join(__dirname, '..', 'uploads', 'products')));
 
+// Ruta publica recuperacion de contraseña
+app.use("/api/v1", passwordRoutes);
+
 // Rutas
 app.use('/api/v1', roleRoutes);
 app.use('/api/v1', userRoutes);
@@ -57,7 +60,6 @@ app.use('/api/v1', examTypeRoutes);
 app.use('/api/v1', paymentTypeRoutes);
 app.use('/api/v1', saleProductRoutes);
 app.use("/api/v1", reportRouter); 
-app.use("/api/v1", passwordRoutes);
 
 // Error 404
 app.use((req, res) => {
