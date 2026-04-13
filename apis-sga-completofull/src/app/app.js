@@ -57,7 +57,7 @@ app.use('/api/v1', examTypeRoutes);
 app.use('/api/v1', paymentTypeRoutes);
 app.use('/api/v1', saleProductRoutes);
 app.use("/api/v1", reportRouter); 
-app.use('/api/v1/auth', passwordRoutes);
+app.use("/api/v1", passwordRoutes);
 
 // Error 404
 app.use((req, res) => {
