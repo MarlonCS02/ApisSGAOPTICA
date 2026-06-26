@@ -258,3 +258,23 @@ export const updateCustomerProfile = async (req, res) => {
         return res.status(500).json({ message: "Error actualizando el perfil", error: error.message });
     }
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET: Cliente por user_id (para que el frontend de Profile cargue sus datos)
+// ─────────────────────────────────────────────────────────────────────────────
+export const getCustomerByUserId = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const customer = await Customer.findOne({
+            where: { idUser: userId },
+            include: [
+                { model: DocumentType, attributes: ["id_doc_type", "type_document", "document_name"] }
+            ]
+        });
+        if (!customer) return res.status(404).json({ message: "Customer not found for this user" });
+        return res.status(200).json(customer);
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ message: "Error fetching customer by user", error: error.message });
+    }
+};

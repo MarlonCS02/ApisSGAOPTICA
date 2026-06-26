@@ -4,8 +4,9 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "npx nodemon src/index.js"
+  "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+  "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
+  "dev": "npx nodemon src/index.js"
   },
   "keywords": [],
   "author": "",
@@ -24,7 +25,24 @@
     "sequelize": "^6.37.8"
   },
   "devDependencies": {
-    "nodemon": "^3.1.10"
+    "jest": "^30.4.2",
+    "nodemon": "^3.1.10",
+    "supertest": "^7.2.2"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "transform": {},
+    "collectCoverageFrom": [
+      "src/models/**/*.js",
+      "src/middlewares/**/*.js",
+      "src/controllers/**/*.js",
+      "src/routers/**/*.js",
+      "!src/models/models.app.js"
+    ],
+    "coverageReporters": ["text", "lcov", "html"],
+    "coverageDirectory": "coverage",
+    "testMatch": ["**/src/__tests__/**/*.test.js"],
+    "moduleFileExtensions": ["js", "json"]
   },
   "description": ""
 }
